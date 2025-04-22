@@ -2,24 +2,23 @@
 session_start();
 require 'C:\xampp\htdocs\itproject\DBconnect\Accounts\overall.php';
 
-// Redirect to login if not logged in
-if (!isset($_SESSION['student_name'])) {
+
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'Student') {
     header("Location: /itproject/Login/login.php");
-    exit;
+    exit();
 }
 
-$studentID = $_SESSION['student_name'];
 
 // Handle appointment status update
 if (isset($_GET['action']) && isset($_GET['id'])) {
-    $appointment_id = (int) $_GET['id'];
+    $appointment_id = (int) $_GET['id']; 
     $action = $_GET['action'];
     $Vstatus = ['cancel' => 'Cancelled', 'ongoing' => 'Ongoing'];
 
     if (array_key_exists($action, $Vstatus)) {
         $status = $Vstatus[$action];
-        $statement = $conn->prepare("UPDATE appointmentdb SET Status = ? WHERE ID = ? AND student_ID = ?");
-        $statement->bind_param("sis", $status, $appointment_id, $studentID);
+        $statement = $conn->prepare("UPDATE appointmentdb SET Status = ? WHERE ID = ?");
+        $statement->bind_param("si", $status, $appointment_id);
 
         if ($statement->execute()) {
             header("Location: viewappoint.php");
@@ -30,7 +29,7 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
     }
 }
 
-// Fetch appointments for the logged-in student only
+// Fetch appointment details with department and teacher name (joining tables)
 $sql = "SELECT 
             a.ID,
             a.student_name,
@@ -42,13 +41,9 @@ $sql = "SELECT
             a.department_name,
             t.teacher_name
         FROM appointmentdb a
-        JOIN teacher t ON a.teacher_name = t.teacher_name
-        WHERE a.student_ID = ?";
+        JOIN teacher t ON a.teacher_name = t.teacher_name"; 
 
-$statement = $conn->prepare($sql);
-$statement->bind_param("s", $studentID);
-$statement->execute();
-$result = $statement->get_result();
+$result = $conn->query($sql);
 
 if (!$result) {
     die("Database query failed: " . $conn->error);
@@ -80,8 +75,8 @@ if (!$result) {
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item"><a class="nav-link" href="\itproject\aboutus.php">About Us</a></li>
                 <li class="nav-item">
-                    <a class="nav-link btn btn-light text-dark" href="\itproject\Login\logout.php">
-                        <i class="fa-regular fa-user"></i> Log out
+                    <a class="nav-link btn btn-light text-dark" href="\itproject\Login\login.php">
+                        <i class="fa-regular fa-user"></i> Log in
                     </a>
                 </li>
             </ul>

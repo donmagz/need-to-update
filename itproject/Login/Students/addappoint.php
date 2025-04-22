@@ -7,19 +7,14 @@ $error_message = "";
 $instructors = [];
 $action = $_POST['action'] ?? '';
 
-// Check if student is logged in
-if (!isset($_SESSION['student_email'])) {
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'Student') {
     header("Location: /itproject/Login/login.php");
     exit();
 }
 
-$studentID = $_SESSION['student_email'];
 
-
-// Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Fetch instructors based on selected department
-    if (!empty($_POST['department_name']) && $action === "fetch") {
+    if (!empty($_POST['department_name'])) {
         $department_selected = mysqli_real_escape_string($conn, $_POST['department_name']);
         $query = "SELECT teacher_name FROM teacher WHERE department_name = '$department_selected'";
         $result = $conn->query($query);
@@ -27,29 +22,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             while ($row = $result->fetch_assoc()) {
                 $instructors[] = $row['teacher_name'];
             }
-        } else {
-            $error_message = "No instructors found for this department.";
         }
     }
 
-    // Handle appointment submission
     if ($action === "submit") {
-        $name = trim($_POST['name'] ?? '');
-        $id = trim($_POST['IDnumber'] ?? '');
-        $section = trim($_POST['section'] ?? '');
-        $date = $_POST['date'] ?? '';
-        $time = $_POST['time'] ?? '';
-        $description = trim($_POST['description'] ?? '');
-        $department = $_POST['department_name'] ?? '';
-        $teacher = $_POST['teacher_name'] ?? '';
+        $name = trim($_POST['name']);
+        $id = trim($_POST['IDnumber']);
+        $section = trim($_POST['section']);
+        $date = $_POST['date'];
+        $time = $_POST['time'];
+        $description = trim($_POST['description']);
+        $department = $_POST['department_name'];
+        $teacher = $_POST['teacher_name'];
 
-        // Validate required fields
         if (empty($name) || empty($id) || empty($section) || empty($date) || empty($time) || empty($description) || empty($department) || empty($teacher)) {
             $error_message = "All fields are required.";
         } else {
             $appointment_datetime = $date . " " . $time . ":00";
 
-            // Clean inputs to prevent SQL injection
             $name = mysqli_real_escape_string($conn, $name);
             $id = mysqli_real_escape_string($conn, $id);
             $section = mysqli_real_escape_string($conn, $section);
@@ -57,15 +47,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $department = mysqli_real_escape_string($conn, $department);
             $teacher = mysqli_real_escape_string($conn, $teacher);
 
-            // Prepare and execute the query to add the appointment
             $statement = $conn->prepare("INSERT INTO appointmentdb (student_name, student_ID, section, appointment_date, Description, department_name, teacher_name, Status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')");
 
             if ($statement) {
                 $statement->bind_param("sssssss", $name, $id, $section, $appointment_datetime, $description, $department, $teacher);
                 if ($statement->execute()) {
                     $success_message = "Appointment added successfully!";
-                    // Clear the POST values
-                    $_POST = [];
                 } else {
                     $error_message = "Error adding appointment. Please try again.";
                 }
@@ -109,7 +96,6 @@ $conn->close();
     <div class="card p-4 shadow-lg" style="max-width: 400px; width: 100%;">
         <h2 class="text-center">Appointments</h2>
 
-        <!-- Display Success/Error Messages -->
         <?php if (!empty($success_message)): ?>
             <div class="alert alert-success"><?php echo $success_message; ?></div>
         <?php elseif (!empty($error_message)): ?>
@@ -117,41 +103,30 @@ $conn->close();
         <?php endif; ?>
 
         <form method="POST">
-            <!-- Name Field -->
             <div class="mb-3">
                 <label class="form-label">Name</label>
                 <input type="text" name="name" class="form-control" value="<?php echo $_POST['name'] ?? ''; ?>" >
             </div>
-
-            <!-- ID Number Field -->
             <div class="mb-3">
                 <label class="form-label">ID Number</label>
                 <input type="number" name="IDnumber" class="form-control" value="<?php echo $_POST['IDnumber'] ?? ''; ?>" >
             </div>
-
-            <!-- Section Field -->
             <div class="mb-3">
                 <label class="form-label">Section</label>
                 <input type="text" name="section" class="form-control" value="<?php echo $_POST['section'] ?? ''; ?>" >
             </div>
-
-            <!-- Date Field -->
             <div class="mb-3">
                 <label class="form-label">Date</label>
                 <input type="date" name="date" class="form-control" value="<?php echo $_POST['date'] ?? ''; ?>" >
             </div>
-
-            <!-- Time Field -->
             <div class="mb-3">
                 <label class="form-label">Time</label>
                 <input type="time" name="time" class="form-control" value="<?php echo $_POST['time'] ?? ''; ?>" >
             </div>
-
-            <!-- Department Field -->
             <div class="mb-3">
                 <label class="form-label">Department</label>
                 <div class="input-group">
-                    <select name="department_name" class="form-control">
+                    <select name="department_name" class="form-control" >
                         <option value="">Select Department</option>
                         <?php
                         $departments = [
@@ -168,11 +143,9 @@ $conn->close();
                     <button type="submit" name="action" value="fetch" class="btn btn-secondary">Load Instructors</button>
                 </div>
             </div>
-
-            <!-- Instructor Field -->
             <div class="mb-3">
                 <label class="form-label">Instructor</label>
-                <select name="teacher_name" class="form-control">
+                <select name="teacher_name" class="form-control" >
                     <option value="">Select Instructor</option>
                     <?php foreach ($instructors as $tname): ?>
                         <option value="<?php echo $tname; ?>" <?php echo (isset($_POST['teacher_name']) && $_POST['teacher_name'] === $tname) ? 'selected' : ''; ?>>
@@ -181,14 +154,11 @@ $conn->close();
                     <?php endforeach; ?>
                 </select>
             </div>
-
-            <!-- Description Field -->
             <div class="mb-3">
                 <label class="form-label">Subject/Meeting Reason</label>
                 <input type="text" name="description" class="form-control" value="<?php echo $_POST['description'] ?? ''; ?>" >
             </div>
 
-            <!-- Submit Button -->
             <div class="d-grid gap-2">
                 <button type="submit" name="action" value="submit" class="btn btn-success">Add Appointment</button>
                 <a href="viewappoint.php" class="btn btn-primary">View Appointments</a>
@@ -197,6 +167,5 @@ $conn->close();
         </form>
     </div>
 </div>
-
 </body>
 </html>
